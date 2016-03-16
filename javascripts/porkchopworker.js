@@ -34,6 +34,8 @@
     destinationOrbit = destinationBody.orbit;
     referenceBody = originOrbit.referenceBody;
     n1 = originOrbit.normalVector();
+    rn1 = destinationOrbit.normalVector();
+
     originPositions = [];
     originVelocities = [];
     for (x = _i = 0; 0 <= WIDTH ? _i < WIDTH : _i > WIDTH; x = 0 <= WIDTH ? ++_i : --_i) {
@@ -42,6 +44,16 @@
       originPositions[x] = originOrbit.positionAtTrueAnomaly(trueAnomaly);
       originVelocities[x] = originOrbit.velocityAtTrueAnomaly(trueAnomaly);
     }
+
+    revOriginPositions = [];
+    revOriginVelocities = [];
+    for (x = _i = 0; 0 <= WIDTH ? _i < WIDTH : _i > WIDTH; x = 0 <= WIDTH ? ++_i : --_i) {
+      departureTime = earliestDeparture + x * xResolution;
+      trueAnomaly = destinationOrbit.trueAnomalyAt(departureTime);
+      revOriginPositions[x] = destinationOrbit.positionAtTrueAnomaly(trueAnomaly);
+      revOriginVelocities[x] = destinationOrbit.velocityAtTrueAnomaly(trueAnomaly);
+    }
+
     deltaVs = new Float64Array(WIDTH * HEIGHT);
     i = 0;
     minDeltaV = Infinity;
@@ -50,25 +62,84 @@
     sumSqLogDeltaV = 0;
     deltaVCount = 0;
     lastProgress = 0;
+
+// console.log(originPositions);
+
     for (y = _j = 0; 0 <= HEIGHT ? _j < HEIGHT : _j > HEIGHT; y = 0 <= HEIGHT ? ++_j : --_j) {
+// 	if (true) {
+// 	y = 107;
       timeOfFlight = shortestTimeOfFlight + ((HEIGHT - 1) - y) * yResolution;
       for (x = _k = 0; 0 <= WIDTH ? _k < WIDTH : _k > WIDTH; x = 0 <= WIDTH ? ++_k : --_k) {
+// 	  if (true) {
+// 	  x = 83;
+
         departureTime = earliestDeparture + x * xResolution;
         arrivalTime = departureTime + timeOfFlight;
+
         p1 = originPositions[x];
         v1 = originVelocities[x];
         trueAnomaly = destinationOrbit.trueAnomalyAt(arrivalTime);
         p2 = destinationOrbit.positionAtTrueAnomaly(trueAnomaly);
         v2 = destinationOrbit.velocityAtTrueAnomaly(trueAnomaly);
+
         transfer = Orbit.transfer(transferType, originBody, destinationBody, departureTime, timeOfFlight, initialOrbitalVelocity, finalOrbitalVelocity, p1, v1, n1, p2, v2);
-        deltaVs[i++] = deltaV = transfer.deltaV;
+
+// console.log(transfer);
+// console.log(transfer.insertionDeltaV);
+
+
+
+	    revDeltaVs = new Float64Array(HEIGHT);
+	    revMinDeltaV = Infinity;
+	    m = 0;
+
+
+		for (z = _l = 0; 0 <= HEIGHT ? _l < HEIGHT : _l > HEIGHT; z = 0 <= HEIGHT ? ++_l : --_l) {
+// 	    if (true) {
+// 		z = 85;
+			revTimeOfFlight = shortestTimeOfFlight + ((HEIGHT - 1) - z) * yResolution;
+
+	        revDepartureTime = arrivalTime;
+	        revArrivalTime = revDepartureTime + revTimeOfFlight;
+	
+	        rp1 = revOriginPositions[z];
+	        rv1 = revOriginVelocities[z];
+	        trueAnomaly = originOrbit.trueAnomalyAt(revArrivalTime);
+	        rp2 = originOrbit.positionAtTrueAnomaly(trueAnomaly);
+	        rv2 = originOrbit.velocityAtTrueAnomaly(trueAnomaly);
+	
+	        revTransfer = Orbit.transfer(transferType, destinationBody, originBody, revDepartureTime, revTimeOfFlight, finalOrbitalVelocity, initialOrbitalVelocity, rp1, rv1, rn1, rp2, rv2);
+	
+// 			console.log(revTransfer);
+// 			console.log(transfer.insertionDeltaV, revTransfer.ejectionDeltaV, Math.abs(transfer.insertionDeltaV - revTransfer.ejectionDeltaV));
+
+	        revDeltaVs[m++] = revDeltaV = Math.abs(transfer.insertionDeltaV - revTransfer.ejectionDeltaV) + revTransfer.insertionDeltaV;
+	        if (revDeltaV < revMinDeltaV) {
+	          revMinDeltaV = revDeltaV;
+	          revMinDeltaVPoint = {
+	            z: (HEIGHT - 1) - z
+	          };
+	        }
+
+// console.log(z,revDeltaV);
+		}
+
+// console.log(revMinDeltaVPoint.z, revMinDeltaV);
+
+        deltaVs[i++] = deltaV = transfer.deltaV + revMinDeltaV;
+
+// console.log(x,y,revMinDeltaVPoint.z,deltaV);
+// console.log(deltaVs);
+
         if (deltaV < minDeltaV) {
           minDeltaV = deltaV;
           minDeltaVPoint = {
             x: x,
-            y: (HEIGHT - 1) - y
+            y: (HEIGHT - 1) - y,
+			z: revMinDeltaVPoint.z
           };
         }
+// console.log(departureTime, deltaV);
         if (deltaV > maxDeltaV) {
           maxDeltaV = deltaV;
         }
@@ -87,6 +158,21 @@
         lastProgress = now;
       }
     }
+
+console.log(minDeltaVPoint);
+console.log(deltaVs);
+
+foo_t0 = earliestDeparture + minDeltaVPoint.x * xResolution;
+foo_dt = shortestTimeOfFlight + minDeltaVPoint.y * yResolution;
+foo = Orbit.transfer(transferType, originBody, destinationBody, foo_t0, foo_dt, initialOrbitalVelocity, finalOrbitalVelocity);
+console.log(foo);
+
+bar_t0 = foo_dt;
+bar_dt = shortestTimeOfFlight + minDeltaVPoint.z * yResolution;
+bar = Orbit.transfer(transferType, destinationBody, originBody, bar_t0, bar_dt, finalOrbitalVelocity, initialOrbitalVelocity);
+console.log(bar);
+
+
     try {
       return postMessage({
         deltaVs: deltaVs.buffer,
