@@ -50,22 +50,31 @@
   };
 
   showTransferDetailsForPoint = function(point) {
-    var dt, mission, t0, transfer, x, y, _ref;
+    var dt, mission, t0, transfer, x, y, z, _ref;
 
     mission = porkchopPlot.mission;
-    _ref = [point.x, point.y], x = _ref[0], y = _ref[1];
+    _ref = [point.x, point.y, point.z], x = _ref[0], y = _ref[1], z = _ref[2];
+
     t0 = mission.earliestDeparture + x * mission.xResolution;
     dt = mission.shortestTimeOfFlight + y * mission.yResolution;
     transfer = Orbit.transfer(mission.transferType, mission.originBody, mission.destinationBody, t0, dt, mission.initialOrbitalVelocity, mission.finalOrbitalVelocity);
-    return showTransferDetails(transfer, t0, dt);
+
+	rt0 = dt;
+	rdt = mission.shortestTimeOfFlight + z * mission.yResolution;
+	revTransfer = Orbit.transfer(mission.transferType, mission.destinationBody, mission.originBody, rt0, rdt, mission.finalOrbitalVelocity, mission.initialOrbitalVelocity);
+
+    return showTransferDetails(transfer, t0, dt, revTransfer, rt0, rdt);
   };
 
-  showTransferDetails = function(transfer, t0, dt) {
+  showTransferDetails = function(transfer, t0, dt, revTransfer, rt0, rdt) {
     var destinationOrbit, ejectionAngle, mission, originOrbit, t1;
 
     mission = porkchopPlot.mission;
     t1 = t0 + dt;
+
     transfer = Orbit.transferDetails(transfer, mission.originBody, t0, mission.initialOrbitalVelocity);
+    revTransfer = Orbit.transferDetails(revTransfer, mission.destinationBody, mission.destinationOrbitalVelocity, rt0);
+
     selectedTransfer = transfer;
     originOrbit = mission.originBody.orbit;
     destinationOrbit = mission.destinationBody.orbit;
@@ -95,10 +104,11 @@
     }
     $('#ejectionDeltaV').text(numberWithCommas(transfer.ejectionDeltaV.toFixed()) + " m/s");
     $('#ejectionDeltaVInfo').popover('hide');
-    $('#transferPeriapsis').text(distanceString(transfer.orbit.periapsisAltitude()));
-    $('#transferApoapsis').text(distanceString(transfer.orbit.apoapsisAltitude()));
-    $('#transferInclination').text(angleString(transfer.orbit.inclination, 2));
-    $('#transferAngle').text(angleString(transfer.angle));
+//     $('#transferPeriapsis').text(distanceString(transfer.orbit.periapsisAltitude()));
+//     $('#transferApoapsis').text(distanceString(transfer.orbit.apoapsisAltitude()));
+//     $('#transferInclination').text(angleString(transfer.orbit.inclination, 2));
+//     $('#transferAngle').text(angleString(transfer.angle));
+/*
     if (transfer.planeChangeTime != null) {
       $('.ballisticTransfer').hide();
       $('.planeChangeTransfer').show();
@@ -113,6 +123,7 @@
       $('.ballisticTransfer').show();
       $('#ejectionInclination').text(angleString(transfer.ejectionInclination, 2));
     }
+*/
     if (transfer.insertionInclination != null) {
       $('#insertionInclination').text(angleString(transfer.insertionInclination, 2));
     } else {
@@ -155,11 +166,13 @@
     celestialBodyForm = new CelestialBodyForm($('#bodyForm'));
     missionForm = new MissionForm($('#porkchopForm'), celestialBodyForm);
     porkchopPlot = new PorkchopPlot($('#porkchopContainer'));
+/*
     $(KerbalTime).on('dateFormatChanged', function(event) {
       if (porkchopPlot.selectedPoint != null) {
         return showTransferDetailsForPoint(porkchopPlot.selectedPoint);
       }
     });
+*/
     $(missionForm).on('submit', function(event) {
       var scrollTop;
 
@@ -177,9 +190,11 @@
     }).on('plotComplete', function(event) {
       showTransferDetailsForPoint(porkchopPlot.selectedPoint);
       return $('#porkchopSubmit,#refineTransferBtn').prop('disabled', false);
-    }).on('click', function(event, point) {
+    })/*
+.on('click', function(event, point) {
       return showTransferDetailsForPoint(point);
-    });
+    })
+*/;
     $('#ejectionDeltaVInfo').popover({
       html: true,
       content: ejectionDeltaVInfoContent
@@ -188,6 +203,7 @@
     }).on('show.bs.popover', function() {
       return $(this).next().find('.popover-content').html(ejectionDeltaVInfoContent());
     });
+/*
     return $('#refineTransferBtn').click(function(event) {
       var dt, mission, t0, transfer, x, y, _ref;
 
@@ -198,6 +214,7 @@
       transfer = Orbit.refineTransfer(selectedTransfer, mission.transferType, mission.originBody, mission.destinationBody, t0, dt, mission.initialOrbitalVelocity, mission.finalOrbitalVelocity);
       return showTransferDetails(transfer, t0, dt);
     });
+*/
   });
 
 }).call(this);
